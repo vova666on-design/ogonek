@@ -38,14 +38,15 @@ html,body{margin:0;min-height:100%;background:radial-gradient(ellipse at 50% 25%
 .tabs button.on{background:var(--card);color:var(--fg)}
 .panel{width:100%;max-width:480px}
 .panel h2{margin:0 0 12px;font-size:20px}
-.row{display:flex;gap:8px;align-items:center;margin:10px 0;background:var(--card);padding:10px;border-radius:14px}
-.row .who{flex:1;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0;background:var(--card);padding:10px;border-radius:14px}
+.row .who{flex:1 1 130px;min-width:0}
 .row .who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 input,select,button{font:inherit;color:var(--fg)}
 input,select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:9px;width:100%}
 input[type=number]{width:70px}
 .go{border:0;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#ff9a3c,#ff4d2e);font-weight:700;white-space:nowrap}
 .go.g{background:var(--card)}
+.go.d{background:rgba(255,70,70,.22);padding:10px 12px}
 .go.pu{background:linear-gradient(135deg,#a45bff,#ff5fd2)}
 .c{position:fixed;top:-20px;font-size:22px;pointer-events:none;z-index:9;animation:cf 2.6s ease-in forwards}
 @keyframes cf{to{transform:translateY(110vh) rotate(540deg);opacity:.8}}
@@ -108,7 +109,7 @@ function render(s,status){
   else if(m.streak<3)c.append(el('div','sm',m.streak+'/3 до огонька'));
   g.append(c)});
  const risk=s.members.filter(m=>m.alive&&m.streak>=3&&left(m)<14400).length;
- $('ft').textContent=risk?'⌛ Огонёк почти погас у '+risk+' чел. — загляните сегодня!':'Огонёк живёт 24 часа после последнего захода';
+ $('ft').textContent=risk?'⌛ Огонёк почти погас у '+risk+' чел. — загляните сегодня!':'Заходи хотя бы раз в день — каждый новый день огонёк растёт на +1';
 }
 setInterval(()=>state&&render(state),60000);
 function confetti(){const e=['🔥','✨','🎉','⭐','💥'];for(let i=0;i<34;i++){const c=el('div','c',e[i%5]);c.style.left=Math.random()*100+'vw';c.style.animationDelay=Math.random()*.8+'s';document.body.append(c);setTimeout(()=>c.remove(),3600)}}
@@ -125,6 +126,7 @@ function tab(k){$('v1').classList.toggle('on',k==1);$('v2').classList.toggle('on
 let sel=null;$('t1').onclick=()=>tab(1);$('t2').onclick=()=>tab(2);
 // ===== админ =====
 let code='';try{code=localStorage.getItem('acode')||''}catch(e){}
+function ask(t,cb){try{if(tg&&tg.showConfirm){tg.showConfirm(t,y=>{if(y)cb()});return}}catch(e){}if(confirm(t))cb()}
 async function ok(c){try{return await rpc('fire_admin_check',{p_code:c})}catch(e){return false}}
 async function adminView(ch){
  const a=$('adm');a.replaceChildren();sel=ch;
@@ -138,15 +140,17 @@ async function adminView(ch){
  const sl=el('select');groups.forEach(x=>{const o=el('option',null,'Группа '+x.chat+' · '+x.members+' чел.');o.value=x.chat;if(x.chat===ch)o.selected=true;sl.append(o)});
  sl.onchange=()=>adminView(sl.value);a.append(sl);
  const s=await rpc('fire_admin_state',{p_code:code,p_chat:ch});
- const line=(ttl,sub,val,lost,fn)=>{const r=el('div','row'),w=el('div','who');w.append(el('b',null,ttl),el('div','sm',sub));
+ const line=(ttl,sub,val,lost,fn,del)=>{const r=el('div','row'),w=el('div','who');w.append(el('b',null,ttl),el('div','sm',sub));
   const i=el('input');i.type='number';i.min=0;i.value=val;
-  const run=async n=>{try{const ns=await fn(n);buzz();if(ch===chat)render(ns);adminView(ch)}catch(e){buzz('error')}};
+  const run=async(n,f)=>{try{const ns=await (f||fn)(n);buzz();if(ch===chat)render(ns);adminView(ch)}catch(e){buzz('error')}};
   const set=el('button','go g','Задать');set.onclick=()=>run(+i.value);r.append(w,i,set);
-  if(lost){const rb=el('button','go pu','Вернуть '+lost);rb.onclick=()=>run(lost);r.append(rb)}a.append(r)};
+  if(lost){const rb=el('button','go pu','Вернуть '+lost);rb.onclick=()=>run(lost);r.append(rb)}
+  if(del){const db=el('button','go d','🗑');db.title='Удалить';db.onclick=()=>ask('Удалить «'+ttl.replace(/^⭐ /,'')+'» вместе с огоньком?',()=>run(null,del));r.append(db)}
+  a.append(r)};
  const G=s.group||{streak:0,best:0,lost:0};
  line('🔥 Огонёк группы','сейчас '+G.streak+' · рекорд '+G.best,G.streak,G.lost,n=>rpc('fire_admin_set_group',{p_code:code,p_chat:ch,p_streak:n}));
- s.members.forEach(m=>line((m.id===uid?'⭐ ':'')+(m.name||m.id),'сейчас '+m.streak+' · рекорд '+m.best+(m.lost?' · можно вернуть '+m.lost:''),m.streak,m.lost,n=>rpc('fire_admin_set_member',{p_code:code,p_chat:ch,p_user:m.id,p_streak:n})));
- a.append(el('div','sm','«Вернуть» работает 48 часов после потери. «Задать» ставит любое число и оживляет огонёк на 24 часа.'));
+ s.members.forEach(m=>line((m.id===uid?'⭐ ':'')+(m.name||m.id),'сейчас '+m.streak+' · рекорд '+m.best+(m.lost?' · можно вернуть '+m.lost:''),m.streak,m.lost,n=>rpc('fire_admin_set_member',{p_code:code,p_chat:ch,p_user:m.id,p_streak:n}),()=>rpc('fire_admin_delete_member',{p_code:code,p_chat:ch,p_user:m.id})));
+ a.append(el('div','sm','«Вернуть» работает 48 часов после потери. «Задать» ставит любое число и оживляет огонёк до конца следующего дня. 🗑 удаляет человека вместе с огоньком.'));
  const np=el('input');np.type='password';np.placeholder='Новый пароль (от 6 символов)';np.style.marginTop='18px';
  const nb=el('button','go g','Сменить пароль');nb.style.marginTop='8px';
  nb.onclick=async()=>{try{await rpc('fire_admin_set_code',{p_code:code,p_new:np.value});code=np.value;try{localStorage.setItem('acode',code)}catch(e){}buzz();np.value='';np.placeholder='Пароль изменён ✓'}catch(e){buzz('error');np.placeholder='Слишком короткий'}};
