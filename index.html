@@ -70,9 +70,10 @@ const $=id=>document.getElementById(id);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 const tu=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user;
 let uid,name,photo=tu&&tu.photo_url||null;
-if(tu){uid=String(tu.id);name=tu.first_name||'Аноним'}
-else{try{uid=localStorage.getItem('uid')||('w'+Math.random().toString(36).slice(2,9));localStorage.setItem('uid',uid)}catch(e){uid='w'+Date.now()}name='Гость'}
-const chat=(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||'demo';
+if(tu){uid=String(tu.id);const emp=x=>!x||!x.replace(/[\s\u200b-\u200f\u2060\u3164\u115f\u1160\ufe0e\ufe0f\ufeff]/g,'');
+ name=((tu.first_name||'')+' '+(tu.last_name||'')).trim();if(emp(name))name=tu.username||'Участник'}
+else{uid=null;name=null}
+const _i=(tg&&tg.initDataUnsafe)||{};const chat=String(_i.start_param||_i.chat_instance||'demo').slice(0,40);
 const buzz=k=>{try{tg.HapticFeedback.notificationOccurred(k||'success')}catch(e){}};
 async function rpc(fn,args){const r=await fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:SB_KEY,Authorization:'Bearer '+SB_KEY},body:JSON.stringify(args)});if(!r.ok)throw new Error(r.status);return r.json()}
 const days=n=>{const a=n%10,b=n%100;return b>10&&b<15?'дней':a==1?'день':a>1&&a<5?'дня':'дней'};
@@ -101,7 +102,7 @@ function render(s,status){
   if(m.alive&&m.streak>=3&&left(m)<14400)fw.append(el('div','hg','⌛'));
   const p=el('div','pic');p.style.width=p.style.height=ps+'px';p.style.setProperty('--ring',ring(m.streak));p.style.fontSize=ps*.4+'px';
   if(m.photo)p.style.backgroundImage='url("'+m.photo.replace(/"/g,'')+'")';else{p.textContent=(m.name||'?')[0].toUpperCase();p.style.background='hsl('+(parseInt(m.id.replace(/\D/g,'')||'7')%360)+',55%,38%)'}
-  c.append(fw,p,el('div','nm',m.name||'Аноним'));
+  c.append(fw,p,el('div','nm',(m.name&&m.name.replace(/[\s\u200b-\u200f\u2060\u3164\u115f\u1160\ufe0e\ufe0f\ufeff]/g,'')?m.name:'Участник')));
   if(m.alive&&m.streak>=3&&left(m)<14400)c.append(el('div','sm','осталось '+hrs(left(m))));
   else if(!m.alive&&m.lost)c.append(el('div','sm','серия потеряна'));
   else if(m.streak<3)c.append(el('div','sm',m.streak+'/3 до огонька'));
@@ -118,7 +119,7 @@ async function touch(){
   if(d.status!=='same_day'){$('gf').classList.add('pop');buzz();const me=d.state.members.find(m=>m.id===uid);if(d.status==='extended')confetti();if(me&&[3,7,30,100,200,400,365].includes(me.streak))confetti()}
  }catch(e){$('n').textContent='—';$('l').textContent='не удалось загрузить, попробуйте позже'}
 }
-touch();
+if(tu)touch();else{$('n').textContent='🔥';$('l').textContent='Огонёк работает только внутри Telegram';const st=$('st');st.hidden=false;const a=el('a',null,'Открыть в Telegram');a.href='https://t.me/lightTG_bot/fire';a.style.color='#ffc477';st.append(a)}
 // ===== вкладки =====
 function tab(k){$('v1').classList.toggle('on',k==1);$('v2').classList.toggle('on',k==2);$('t1').classList.toggle('on',k==1);$('t2').classList.toggle('on',k==2);if(k==2)adminView(sel||chat);buzz('warning')}
 let sel=null;$('t1').onclick=()=>tab(1);$('t2').onclick=()=>tab(2);
